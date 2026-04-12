@@ -98,7 +98,7 @@ def pe(name):
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
 # ======================== DATABASE ========================
-DB_PATH = "/data/bot_database.db"
+DB_PATH = os.environ.get("DB_PATH", "/data/bot_database.db")
 DB_LOCK = threading.Lock()
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 def get_db():
@@ -442,10 +442,20 @@ def generate_txn_id():
 #=================ip verify================
 def send_ip_verify_message(chat_id, user_id):
     markup = types.InlineKeyboardMarkup()
+
+    # Button 1: Website open karega
     markup.add(
         types.InlineKeyboardButton(
             "🚀 Verify & Unlock Reward",
             web_app=WebAppInfo(url=f"{PUBLIC_BASE_URL}/ip-verify?uid={user_id}")
+        )
+    )
+
+    # Button 2: Bot ko check karne bolega
+    markup.add(
+        types.InlineKeyboardButton(
+            "✅ I Verified",
+            callback_data="check_ip_verified"
         )
     )
 
@@ -462,7 +472,7 @@ def send_ip_verify_message(chat_id, user_id):
         f"{pe('zap')} <b>Steps:</b>\n"
         f"{pe('play')} Tap verify button\n"
         f"{pe('play')} Complete quick check\n"
-        f"{pe('play')} Return & claim reward\n\n"
+        f"{pe('play')} Come back and tap <b>I Verified</b>\n\n"
         f"{pe('money')} <b>Reward Status:</b> Locked 🔒\n"
         f"💸 <b>After Verify:</b> Instant Unlock\n\n"
         f"{pe('sparkle')} <i>Fast • Secure • Instant</i>\n"
@@ -886,6 +896,30 @@ def verify_join(call):
         send_welcome(call.message.chat.id, user_id, call.from_user.first_name or "User", True)
     else:
         safe_answer(call, "❌ Please join ALL channels first!", True)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "check_ip_verified")
+def check_ip_verified(call):
+    user_id = call.from_user.id
+    user = get_user(user_id)
+
+    if not user:
+        safe_answer(call, "❌ User not found!", True)
+        return
+
+    if int(user["ip_verified"] or 0) != 1:
+        safe_answer(call, "❌ IP verification abhi complete nahi hua.", True)
+        return
+
+    process_referral_bonus(user_id)
+    safe_answer(call, "✅ IP verification complete!")
+
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except:
+        pass
+
+    send_welcome(call.message.chat.id, user_id, call.from_user.first_name or "User", False)
 # ======================== BALANCE ========================
 @bot.message_handler(func=lambda m: m.text == "💰 Balance")
 def balance_handler(message):
