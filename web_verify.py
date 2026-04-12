@@ -5,7 +5,7 @@ import os
 app = Flask(__name__)
 
 DB_PATH = os.environ.get("DB_PATH", "/data/bot_database.db")
-BOT_USERNAME = os.environ.get("BOT_USERNAME", "YourBotUsername")
+BOT_USERNAME = os.environ.get("BOT_USERNAME", "neturalpredictorbot")
 
 HTML_SUCCESS = """
 <!DOCTYPE html>
