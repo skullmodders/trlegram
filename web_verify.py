@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-DB_PATH = os.environ.get("DB_PATH", "bot_database.db")
+DB_PATH = "/data/bot_database.db"
 
 HTML_SUCCESS = """
 <!DOCTYPE html>
