@@ -13,6 +13,7 @@ import io
 from telebot.types import WebAppInfo
 from anticheat import AntiCheatSystem
 from broadcast import BroadcastSystem
+from getoldb import DatabaseImportSystem
 # ======================== CONFIGURATION ========================
 BOT_TOKEN = "8346441928:AAFf6e7qpc8ZnF4mvLn8nXNxvIXT68AH_to"
 ADMIN_ID = 7353041224
@@ -507,6 +508,7 @@ def safe_answer(call, text="", alert=False):
         bot.answer_callback_query(call.id, text, show_alert=alert)
     except:
         pass
+        
 #aniticheat
 anticheat = AntiCheatSystem(
     bot=bot,
@@ -525,6 +527,60 @@ anticheat = AntiCheatSystem(
 
 anticheat.init_schema()
 anticheat.register_bot_handlers()
+def safe_answer(call, text="", alert=False):
+    try:
+        bot.answer_callback_query(call.id, text, show_alert=alert)
+    except:
+        pass
+
+
+# ======================== SYSTEMS INIT ========================
+
+anticheat = AntiCheatSystem(
+    bot=bot,
+    db_path=DB_PATH,
+    db_execute=db_execute,
+    get_user=get_user,
+    update_user=update_user,
+    get_setting=get_setting,
+    set_setting=set_setting,
+    safe_send=safe_send,
+    safe_answer=safe_answer,
+    is_admin=is_admin,
+    pe=pe,
+    process_referral_bonus=process_referral_bonus,
+)
+anticheat.init_schema()
+anticheat.register_bot_handlers()
+
+broadcaster = BroadcastSystem(
+    bot=bot,
+    is_admin=is_admin,
+    get_all_users=get_all_users,
+    safe_send=safe_send,
+    log_admin_action=log_admin_action,
+)
+broadcaster.register_handlers()
+
+db_importer = DatabaseImportSystem(
+    bot=bot,
+    is_admin=is_admin,
+    safe_send=safe_send,
+    db_path=DB_PATH,
+    get_db=get_db,
+    db_execute=db_execute,
+    log_admin_action=log_admin_action,
+)
+db_importer.register_handlers()
+
+
+# ======================== DB GET (Admin) ========================
+@bot.message_handler(commands=['getdb'])
+def send_db(message):
+    if is_admin(message.from_user.id):
+        with open(DB_PATH, "rb") as f:
+            bot.send_document(message.chat.id, f)
+        log_admin_action(message.from_user.id, "getdb", "Downloaded database")
 # ======================== DB GET (Admin) ========================
 @bot.message_handler(commands=['getdb'])
 def send_db(message):
