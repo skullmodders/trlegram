@@ -444,7 +444,7 @@ def send_ip_verify_message(chat_id, user_id):
     markup = types.InlineKeyboardMarkup()
     markup.add(
         types.InlineKeyboardButton(
-            f"{pe('rocket')} Verify & Unlock Reward",
+            "🚀 Verify & Unlock Reward",
             web_app=WebAppInfo(url=f"{PUBLIC_BASE_URL}/ip-verify?uid={user_id}")
         )
     )
@@ -468,7 +468,7 @@ def send_ip_verify_message(chat_id, user_id):
         f"{pe('play')} Return & claim reward\n\n"
 
         f"{pe('money')} <b>Reward Status:</b> Locked 🔒\n"
-        f"{pe('unlock')} <b>After Verify:</b> Instant Unlock 💸\n\n"
+        f"💸 <b>After Verify:</b> Instant Unlock\n\n"
 
         f"{pe('sparkle')} <i>Fast • Secure • Instant</i>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━",
