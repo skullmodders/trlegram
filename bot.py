@@ -100,7 +100,7 @@ bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 # ======================== DATABASE ========================
 DB_PATH = "/data/bot_database.db"
 DB_LOCK = threading.Lock()
-PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+web_app=WebAppInfo(url=f"{PUBLIC_BASE_URL}/ip-verify?uid={user_id}")
 def get_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
     conn.row_factory = sqlite3.Row
