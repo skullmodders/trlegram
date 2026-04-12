@@ -445,8 +445,7 @@ def send_ip_verify_message(chat_id, user_id):
     markup.add(
         types.InlineKeyboardButton(
             "🚀 Verify & Unlock Reward",
-            web_app=WebAppInfo(url=f"{PUBLIC_BASE_URL}/ip-verify?uid={user_id}")
-        )
+            PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")        )
     )
 
     safe_send(
