@@ -11,6 +11,7 @@ import os
 import csv
 import io
 from telebot.types import WebAppInfo
+from anticheat import AntiCheatSystem
 # ======================== CONFIGURATION ========================
 BOT_TOKEN = "8346441928:AAFf6e7qpc8ZnF4mvLn8nXNxvIXT68AH_to"
 ADMIN_ID = 7353041224
@@ -96,7 +97,6 @@ def pe(name):
 
 # ======================== BOT INIT ========================
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
-
 # ======================== DATABASE ========================
 DB_PATH = os.environ.get("DB_PATH", "/data/bot_database.db")
 DB_LOCK = threading.Lock()
@@ -441,44 +441,8 @@ def generate_txn_id():
     return "TXN" + ''.join(random.choices(string.digits, k=10))
 #=================ip verify================
 def send_ip_verify_message(chat_id, user_id):
-    markup = types.InlineKeyboardMarkup()
+    anticheat.send_ip_verify_message(chat_id, user_id)
 
-    # Button 1: Website open karega
-    markup.add(
-        types.InlineKeyboardButton(
-            "🚀 Verify & Unlock Reward",
-            web_app=WebAppInfo(url=f"{PUBLIC_BASE_URL}/ip-verify?uid={user_id}")
-        )
-    )
-
-    # Button 2: Bot ko check karne bolega
-    markup.add(
-        types.InlineKeyboardButton(
-            "✅ I Verified",
-            callback_data="check_ip_verified"
-        )
-    )
-
-    safe_send(
-        chat_id,
-        f"{pe('shield')} <b>Secure IP Verification</b> {pe('verify')}\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"{pe('warning')} <b>Action Required!</b>\n"
-        f"{pe('info')} Complete verification to unlock your reward.\n\n"
-        f"{pe('target')} <b>Why this step?</b>\n"
-        f"{pe('arrow')} Prevent fake accounts\n"
-        f"{pe('arrow')} Ensure fair rewards\n"
-        f"{pe('arrow')} Secure your earnings\n\n"
-        f"{pe('zap')} <b>Steps:</b>\n"
-        f"{pe('play')} Tap verify button\n"
-        f"{pe('play')} Complete quick check\n"
-        f"{pe('play')} Come back and tap <b>I Verified</b>\n\n"
-        f"{pe('money')} <b>Reward Status:</b> Locked 🔒\n"
-        f"💸 <b>After Verify:</b> Instant Unlock\n\n"
-        f"{pe('sparkle')} <i>Fast • Secure • Instant</i>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━",
-        reply_markup=markup
-    )
 # ======================== ADMIN MANAGEMENT ========================
 def is_admin(user_id):
     if int(user_id) == int(ADMIN_ID):
@@ -542,7 +506,24 @@ def safe_answer(call, text="", alert=False):
         bot.answer_callback_query(call.id, text, show_alert=alert)
     except:
         pass
+#aniticheat
+anticheat = AntiCheatSystem(
+    bot=bot,
+    db_path=DB_PATH,
+    db_execute=db_execute,
+    get_user=get_user,
+    update_user=update_user,
+    get_setting=get_setting,
+    set_setting=set_setting,
+    safe_send=safe_send,
+    safe_answer=safe_answer,
+    is_admin=is_admin,
+    pe=pe,
+    process_referral_bonus=process_referral_bonus,
+)
 
+anticheat.init_schema()
+anticheat.register_bot_handlers()
 # ======================== DB GET (Admin) ========================
 @bot.message_handler(commands=['getdb'])
 def send_db(message):
@@ -892,7 +873,11 @@ def verify_join(call):
             send_ip_verify_message(call.message.chat.id, user_id)
             return
 
-        process_referral_bonus(user_id)
+        ok, reason = anticheat.can_pay_referral_bonus(user_id)
+
+        if ok:
+            process_referral_bonus(user_id)
+
         send_welcome(call.message.chat.id, user_id, call.from_user.first_name or "User", True)
     else:
         safe_answer(call, "❌ Please join ALL channels first!", True)
@@ -911,8 +896,14 @@ def check_ip_verified(call):
         safe_answer(call, "❌ IP verification abhi complete nahi hua.", True)
         return
 
-    process_referral_bonus(user_id)
-    safe_answer(call, "✅ IP verification complete!")
+    ok, reason = anticheat.can_pay_referral_bonus(user_id)
+
+    if ok:
+        process_referral_bonus(user_id)
+        safe_answer(call, "✅ IP verification complete!")
+    else:
+        safe_answer(call, f"❌ {reason}", True)
+        return
 
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
