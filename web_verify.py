@@ -5,56 +5,78 @@ import os
 app = Flask(__name__)
 
 DB_PATH = os.environ.get("DB_PATH", "/data/bot_database.db")
-BOT_USERNAME = os.environ.get("BOT_USERNAME", "neturalpredictorbot")
+BOT_USERNAME = os.environ.get("BOT_USERNAME", "NeturalPredictorbot")
 
 HTML_SUCCESS = """
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verification Complete</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
             margin: 0;
+            padding: 0;
             font-family: Arial, sans-serif;
             background: #0f172a;
-            color: white;
+            color: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
         }
-        .box {
-            width: 90%;
+        .card {
+            width: 92%;
             max-width: 420px;
             background: #1e293b;
-            border-radius: 16px;
+            border-radius: 18px;
             padding: 28px;
             text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 28px;
+        }
+        p {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #e2e8f0;
+        }
+        .uid {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: #334155;
+            color: #fff;
+            font-weight: bold;
         }
         .btn {
             display: inline-block;
-            margin-top: 18px;
-            padding: 12px 20px;
+            margin-top: 20px;
+            padding: 12px 18px;
             border-radius: 10px;
             background: #22c55e;
             color: white;
             text-decoration: none;
             font-weight: bold;
         }
-        code {
-            background: #334155;
-            padding: 5px 10px;
-            border-radius: 8px;
+        .btn:hover {
+            opacity: 0.92;
         }
     </style>
 </head>
 <body>
-    <div class="box">
+    <div class="card">
         <h1>✅ Verification Complete</h1>
         <p>Your IP has been verified successfully.</p>
-        <p>User ID: <code>{{ user_id }}</code></p>
+        <div class="uid">User ID: {{ user_id }}</div>
+        <br>
         <a class="btn" href="https://t.me/{{ bot_username }}">Return to Telegram</a>
     </div>
 </body>
@@ -63,44 +85,61 @@ HTML_SUCCESS = """
 
 HTML_ERROR = """
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verification Failed</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
             margin: 0;
+            padding: 0;
             font-family: Arial, sans-serif;
             background: #0f172a;
-            color: white;
+            color: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
         }
-        .box {
-            width: 90%;
+        .card {
+            width: 92%;
             max-width: 420px;
             background: #1e293b;
-            border-radius: 16px;
+            border-radius: 18px;
             padding: 28px;
             text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 28px;
+        }
+        p {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #e2e8f0;
         }
         .btn {
             display: inline-block;
-            margin-top: 18px;
-            padding: 12px 20px;
+            margin-top: 20px;
+            padding: 12px 18px;
             border-radius: 10px;
             background: #3b82f6;
             color: white;
             text-decoration: none;
             font-weight: bold;
         }
+        .btn:hover {
+            opacity: 0.92;
+        }
     </style>
 </head>
 <body>
-    <div class="box">
+    <div class="card">
         <h1>❌ Verification Failed</h1>
         <p>{{ message }}</p>
         <a class="btn" href="https://t.me/{{ bot_username }}">Return to Telegram</a>
@@ -114,7 +153,7 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def ensure_user_columns():
+def ensure_schema():
     conn = get_db()
     cur = conn.cursor()
 
@@ -141,17 +180,17 @@ def ensure_user_columns():
 
     try:
         cur.execute("ALTER TABLE users ADD COLUMN ip_address TEXT DEFAULT ''")
-    except:
+    except sqlite3.OperationalError:
         pass
 
     try:
         cur.execute("ALTER TABLE users ADD COLUMN ip_verified INTEGER DEFAULT 0")
-    except:
+    except sqlite3.OperationalError:
         pass
 
     try:
         cur.execute("ALTER TABLE users ADD COLUMN referral_paid INTEGER DEFAULT 0")
-    except:
+    except sqlite3.OperationalError:
         pass
 
     conn.commit()
@@ -168,7 +207,7 @@ def get_real_ip():
 
     return request.remote_addr or ""
 
-def is_ip_already_used(ip_address, user_id):
+def ip_used_by_other_user(ip_address, user_id):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
@@ -179,24 +218,31 @@ def is_ip_already_used(ip_address, user_id):
     conn.close()
     return row is not None
 
-def verify_user_ip(user_id, ip_address):
+def verify_ip_for_user(user_id, ip_address):
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT user_id, ip_verified FROM users WHERE user_id = ?", (user_id,))
+    cur.execute(
+        "SELECT user_id, ip_verified, ip_address FROM users WHERE user_id = ?",
+        (user_id,)
+    )
     user = cur.fetchone()
 
     if not user:
         conn.close()
-        return False, "User not found."
+        return False, "User not found in database."
 
     if int(user["ip_verified"] or 0) == 1:
         conn.close()
         return True, "Already verified."
 
-    if is_ip_already_used(ip_address, user_id):
+    if not ip_address:
         conn.close()
-        return False, "This IP address has already been used by another account."
+        return False, "Could not detect your IP address."
+
+    if ip_used_by_other_user(ip_address, user_id):
+        conn.close()
+        return False, "This IP address is already used by another account."
 
     cur.execute(
         "UPDATE users SET ip_address = ?, ip_verified = 1 WHERE user_id = ?",
@@ -204,41 +250,39 @@ def verify_user_ip(user_id, ip_address):
     )
     conn.commit()
     conn.close()
+
     return True, "Verified successfully."
 
 @app.route("/")
 def home():
     return "IP verify server is running."
 
+@app.route("/health")
+def health():
+    return {"status": "ok"}
+
 @app.route("/ip-verify")
 def ip_verify():
-    user_id_raw = request.args.get("uid", "").strip()
+    uid = request.args.get("uid", "").strip()
 
-    if not user_id_raw:
+    if not uid:
         return render_template_string(
             HTML_ERROR,
-            message="Missing user ID in verification link.",
+            message="Missing user ID in URL.",
             bot_username=BOT_USERNAME
         ), 400
 
-    if not user_id_raw.isdigit():
+    if not uid.isdigit():
         return render_template_string(
             HTML_ERROR,
             message="Invalid user ID.",
             bot_username=BOT_USERNAME
         ), 400
 
-    user_id = int(user_id_raw)
+    user_id = int(uid)
     ip_address = get_real_ip()
 
-    if not ip_address:
-        return render_template_string(
-            HTML_ERROR,
-            message="Could not detect your IP address.",
-            bot_username=BOT_USERNAME
-        ), 400
-
-    ok, message = verify_user_ip(user_id, ip_address)
+    ok, message = verify_ip_for_user(user_id, ip_address)
 
     if not ok:
         return render_template_string(
@@ -254,6 +298,6 @@ def ip_verify():
     )
 
 if __name__ == "__main__":
-    ensure_user_columns()
+    ensure_schema()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=False)
