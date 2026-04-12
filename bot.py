@@ -10,7 +10,7 @@ from datetime import datetime
 import os
 import csv
 import io
-
+from telebot.types import WebAppInfo
 # ======================== CONFIGURATION ========================
 BOT_TOKEN = "8346441928:AAFf6e7qpc8ZnF4mvLn8nXNxvIXT68AH_to"
 ADMIN_ID = 7353041224
@@ -444,16 +444,35 @@ def send_ip_verify_message(chat_id, user_id):
     markup = types.InlineKeyboardMarkup()
     markup.add(
         types.InlineKeyboardButton(
-            "🌐 Verify IP",
-           url=f"{PUBLIC_BASE_URL}/ip-verify?uid={user_id}"
+            f"{pe('rocket')} Verify & Unlock Reward",
+            web_app=WebAppInfo(url=f"{PUBLIC_BASE_URL}/ip-verify?uid={user_id}")
         )
     )
 
     safe_send(
         chat_id,
-        f"{pe('globe')} <b>IP Verification Required</b>\n\n"
-        f"{pe('info')} Please verify your IP before reward can be claimed.\n"
-        f"{pe('arrow')} Click the button below.",
+        f"{pe('shield')} <b>Secure IP Verification</b> {pe('verify')}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        f"{pe('warning')} <b>Action Required!</b>\n"
+        f"{pe('info')} Complete verification to unlock your reward.\n\n"
+
+        f"{pe('target')} <b>Why this step?</b>\n"
+        f"{pe('arrow')} Prevent fake accounts\n"
+        f"{pe('arrow')} Ensure fair rewards\n"
+        f"{pe('arrow')} Secure your earnings\n\n"
+
+        f"{pe('zap')} <b>Steps:</b>\n"
+        f"{pe('play')} Tap verify button\n"
+        f"{pe('play')} Complete quick check\n"
+        f"{pe('play')} Return & claim reward\n\n"
+
+        f"{pe('money')} <b>Reward Status:</b> Locked 🔒\n"
+        f"{pe('unlock')} <b>After Verify:</b> Instant Unlock 💸\n\n"
+
+        f"{pe('sparkle')} <i>Fast • Secure • Instant</i>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━",
+        
         reply_markup=markup
     )
 # ======================== ADMIN MANAGEMENT ========================
