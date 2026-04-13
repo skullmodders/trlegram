@@ -14,6 +14,8 @@ from telebot.types import WebAppInfo
 from anticheat import AntiCheatSystem
 from broadcast import BroadcastSystem
 from getoldb import DatabaseImportSystem
+from withdrawlimit import WithdrawLimitSystem
+from adminhelp import AdminHelpSystem
 # ======================== CONFIGURATION ========================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_ID = 7353041224
@@ -502,7 +504,6 @@ def safe_edit(chat_id, message_id, text, **kwargs):
     except Exception as e:
         print(f"safe_edit error: {e}")
         return None
-        
 
 def safe_answer(call, text="", alert=False):
     try:
@@ -550,7 +551,23 @@ db_importer = DatabaseImportSystem(
 )
 db_importer.register_handlers()
 
+withdraw_limit = WithdrawLimitSystem(
+    db_execute=db_execute,
+    get_setting=get_setting,
+    set_setting=set_setting,
+    safe_send=safe_send,
+    pe=pe,
+)
 
+withdraw_limit.ensure_settings()
+admin_help = AdminHelpSystem(
+    bot=bot,
+    is_admin=is_admin,
+    safe_send=safe_send,
+    pe=pe,
+)
+
+admin_help.register_handlers()
 # ======================== DB GET (Admin) ========================
 @bot.message_handler(commands=['getdb'])
 def send_db(message):
@@ -558,7 +575,6 @@ def send_db(message):
         with open(DB_PATH, "rb") as f:
             bot.send_document(message.chat.id, f)
         log_admin_action(message.from_user.id, "getdb", "Downloaded database")
-
 # ======================== USER STATES ========================
 user_states = {}
 states_lock = threading.Lock()
@@ -921,7 +937,7 @@ def check_ip_verified(call):
         return
 
     if int(user["ip_verified"] or 0) != 1:
-        safe_answer(call, "❌ IP verification abhi complete nahi hua.", True)
+        safe_answer(call, "❌ IP verification failed ", True)
         return
 
     ok, reason = anticheat.can_pay_referral_bonus(user_id)
@@ -1082,12 +1098,15 @@ def show_withdraw(chat_id, user_id):
     if not user:
         safe_send(chat_id, "Please send /start first.")
         return
+
     if user["banned"]:
         safe_send(chat_id, f"{pe('no_entry')} <b>Account Banned!</b>\nContact {HELP_USERNAME} for support.")
         return
+
     if not get_setting("withdraw_enabled"):
         safe_send(chat_id, f"{pe('no_entry')} <b>Withdrawals Disabled</b>\n{pe('hourglass')} Please try again later.")
         return
+
     if not is_withdraw_time():
         s = get_setting("withdraw_time_start")
         e = get_setting("withdraw_time_end")
@@ -1098,6 +1117,14 @@ def show_withdraw(chat_id, user_id):
             f"{pe('bell')} Come back during withdrawal hours!"
         )
         return
+
+    limit_result = withdraw_limit.check_and_send_limit_message(chat_id, user_id)
+    if not limit_result["allowed"]:
+        return
+
+    today_withdraws = limit_result["used_today"]
+    daily_limit = limit_result["daily_limit"]
+
     min_withdraw = get_setting("min_withdraw")
     if user["balance"] < min_withdraw:
         markup = types.InlineKeyboardMarkup()
@@ -1107,11 +1134,14 @@ def show_withdraw(chat_id, user_id):
             f"{pe('warning')} <b>Insufficient Balance!</b>\n\n"
             f"{pe('fly_money')} Balance: ₹{user['balance']:.2f}\n"
             f"{pe('down_arrow')} Minimum: ₹{min_withdraw}\n"
+            f"{pe('calendar')} <b>Daily Limit:</b> {daily_limit} withdrawals per day\n"
+            f"{pe('calendar')} <b>Today's Withdrawals:</b> {today_withdraws}/{daily_limit}\n"
             f"{pe('excl')} Need ₹{max(0, min_withdraw - user['balance']):.2f} more\n\n"
             f"{pe('arrow')} Refer friends to earn more!",
             reply_markup=markup
         )
         return
+
     if user["upi_id"]:
         markup = types.InlineKeyboardMarkup(row_width=1)
         markup.add(
@@ -1123,6 +1153,8 @@ def show_withdraw(chat_id, user_id):
             f"{pe('fly_money')} <b>Withdraw Funds</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"{pe('money')} <b>Balance:</b> ₹{user['balance']:.2f}\n"
+            f"{pe('calendar')} <b>Daily Limit:</b> {daily_limit} withdrawals per day\n"
+            f"{pe('calendar')} <b>Today's Withdrawals:</b> {today_withdraws}/{daily_limit}\n"
             f"{pe('down_arrow')} <b>Min:</b> ₹{min_withdraw}\n"
             f"{pe('link')} <b>Saved UPI:</b> {user['upi_id']}\n\n"
             f"{pe('question2')} Choose an option:\n"
@@ -1137,13 +1169,14 @@ def show_withdraw(chat_id, user_id):
         safe_send(
             chat_id,
             f"{pe('pencil')} <b>Enter Your UPI ID</b>\n\n"
+            f"{pe('calendar')} <b>Daily Limit:</b> {daily_limit} withdrawals per day\n"
+            f"{pe('calendar')} <b>Today's Withdrawals:</b> {today_withdraws}/{daily_limit}\n\n"
             f"{pe('info')} Valid formats:\n"
             f"  <code>name@paytm</code>\n"
             f"  <code>9876543210@okaxis</code>\n"
             f"  <code>name@ybl</code>\n\n"
             f"{pe('warning')} Double-check your UPI ID!"
         )
-
 @bot.callback_query_handler(func=lambda call: call.data == "use_saved_upi")
 def use_saved_upi(call):
     user_id = call.from_user.id
@@ -2444,19 +2477,30 @@ def confirm_withdraw_cb(call):
     except:
         safe_answer(call, "Invalid data!", True)
         return
+
     user = get_user(user_id)
     if not user:
         safe_answer(call, "User not found!", True)
         return
+
     if amount > user["balance"]:
         safe_answer(call, "❌ Insufficient balance!", True)
         return
+
+    # ✅ DAILY LIMIT FINAL CHECK YAHAN
+    allowed, reason = withdraw_limit.can_user_withdraw(user_id)
+    if not allowed:
+        safe_answer(call, "❌ Daily limit reached!", True)
+        safe_send(call.message.chat.id, reason)
+        return
+
     update_user(user_id, balance=user["balance"] - amount)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     w_id = db_lastrowid(
         "INSERT INTO withdrawals (user_id, amount, upi_id, status, created_at) VALUES (?,?,?,?,?)",
         (user_id, amount, upi_id, "pending", now)
     )
+
     safe_answer(call, "✅ Withdrawal request submitted!")
     safe_edit(
         call.message.chat.id, call.message.message_id,
@@ -2470,6 +2514,7 @@ def confirm_withdraw_cb(call):
         f"{pe('bell')} You'll be notified.\n"
         f"━━━━━━━━━━━━━━━━━━━━━━"
     )
+
     try:
         admin_markup = types.InlineKeyboardMarkup(row_width=2)
         admin_markup.add(
