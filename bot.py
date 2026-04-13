@@ -15,7 +15,7 @@ from anticheat import AntiCheatSystem
 from broadcast import BroadcastSystem
 from getoldb import DatabaseImportSystem
 # ======================== CONFIGURATION ========================
-BOT_TOKEN = "8346441928:AAFf6e7qpc8ZnF4mvLn8nXNxvIXT68AH_to"
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_ID = 7353041224
 HELP_USERNAME = "@itsukiarai"
 MESSAGE_EFFECT_ID = "5104841245755180586"
@@ -581,13 +581,7 @@ def send_db(message):
         with open(DB_PATH, "rb") as f:
             bot.send_document(message.chat.id, f)
         log_admin_action(message.from_user.id, "getdb", "Downloaded database")
-# ======================== DB GET (Admin) ========================
-@bot.message_handler(commands=['getdb'])
-def send_db(message):
-    if is_admin(message.from_user.id):
-        with open(DB_PATH, "rb") as f:
-            bot.send_document(message.chat.id, f)
-        log_admin_action(message.from_user.id, "getdb", "Downloaded database")
+
 # ======================== USER STATES ========================
 user_states = {}
 states_lock = threading.Lock()
