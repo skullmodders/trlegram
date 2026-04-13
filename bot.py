@@ -502,31 +502,8 @@ def safe_edit(chat_id, message_id, text, **kwargs):
     except Exception as e:
         print(f"safe_edit error: {e}")
         return None
-
-def safe_answer(call, text="", alert=False):
-    try:
-        bot.answer_callback_query(call.id, text, show_alert=alert)
-    except:
-        pass
         
-#aniticheat
-anticheat = AntiCheatSystem(
-    bot=bot,
-    db_path=DB_PATH,
-    db_execute=db_execute,
-    get_user=get_user,
-    update_user=update_user,
-    get_setting=get_setting,
-    set_setting=set_setting,
-    safe_send=safe_send,
-    safe_answer=safe_answer,
-    is_admin=is_admin,
-    pe=pe,
-    process_referral_bonus=process_referral_bonus,
-)
 
-anticheat.init_schema()
-anticheat.register_bot_handlers()
 def safe_answer(call, text="", alert=False):
     try:
         bot.answer_callback_query(call.id, text, show_alert=alert)
@@ -1218,7 +1195,7 @@ def gift_handler(message):
 def show_gift_menu(chat_id, user):
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        types.InlineKeyboardButton("🎟 Redeem Code", callback_data="redeem_code"),
+        types.InlineKeyboardButton("🎟 Claim Gift Code", callback_data="redeem_code"),
         types.InlineKeyboardButton("🎁 Create Gift", callback_data="create_gift"),
     )
     markup.add(types.InlineKeyboardButton("🎰 Daily Bonus", callback_data="daily_bonus"))
