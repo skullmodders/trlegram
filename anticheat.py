@@ -863,6 +863,8 @@ class AntiCheatSystem:
             f"{self.pe('play')} Complete quick check\n"
             f"{self.pe('play')} Return and tap <b>I Verified</b>\n\n"
             f"{self.pe('money')} <b>Reward Status:</b> Locked 🔒\n"
+            f"{self.pe('arrow')} You can still continue using the bot anytime.\n"
+            f"{self.pe('play')} Just tap <code>/start</code> to begin again 🚀" 
             f"━━━━━━━━━━━━━━━━━━━━━━",
             reply_markup=markup
         )
